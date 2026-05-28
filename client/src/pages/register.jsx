@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { register } from '../services/authService'
 import { useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 
 
 function Register() {
@@ -10,18 +11,25 @@ function Register() {
 
     const navigate = useNavigate()
 
+    const [error, setError] = useState('')
+
     const handleSubmit = async (e) => {
-        e.preventDefault();
-        const data = await register(name, email, password)
-        console.log(data)
-        localStorage.setItem('token', data.token)
-        navigate('/dashboard')
+        e.preventDefault()
+        try {
+            const data = await register(name, email, password)
+            localStorage.setItem('token', data.token)
+            navigate('/dashboard')
+        } catch (err) {
+            setError('Invalid email or password')
+        }
     }
+
 
     return (
         <form onSubmit={handleSubmit}>
             <div>
                 <h1>register</h1>
+                {error && <p style={{ color: 'red' }}>{error}</p>}
                 <label htmlFor="name">Name</label>
                 <input type="text" id="name" value={name} onChange={(e) => setName(e.target.value)} />
                 <label htmlFor="email">Email</label>
@@ -29,6 +37,10 @@ function Register() {
                 <label htmlFor="password">Password</label>
                 <input type="password" id="password" value={password} onChange={(e) => setPassword(e.target.value)} />
                 <button type="submit">Register</button>
+            </div>
+            <div>
+                <p>already have an account?</p>
+                <Link to="/login">Login</Link>
             </div>
         </form>
     )

@@ -10,18 +10,25 @@ function Login() {
 
     const navigate = useNavigate()
 
+    const [error, setError] = useState('')
+
     const handleSubmit = async (e) => {
-        e.preventDefault();
-        const data = await login(email, password)
-        console.log(data)
-        localStorage.setItem('token', data.token)
-        navigate('/dashboard')
+        e.preventDefault()
+        try {
+            const data = await login(email, password)
+            localStorage.setItem('token', data.token)
+            navigate('/dashboard')
+        } catch (err) {
+            setError('Invalid email or password')
+        }
     }
+
 
     return (
         <form onSubmit={handleSubmit}>
             <div>
                 <h1>Login</h1>
+                {error && <p style={{ color: 'red' }}>{error}</p>}
                 <label htmlFor="email">Email</label>
                 <input
                     type="email"

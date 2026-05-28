@@ -21,8 +21,19 @@ const registerUser = async (req, res) => {
             password: hashedPassword
         })
 
-        await user.save();
-        res.status(201).json({ message: "User created successfully", user: { name: user.name, email: user.email, password: user.password } })
+        await user.save()
+
+        const token = jwt.sign(
+            { id: user._id },
+            process.env.JWT_SECRET,
+            { expiresIn: '1h' }
+        )
+
+        res.status(201).json({
+            message: "User created successfully",
+            user: { name: user.name, email: user.email },
+            token
+        })
 
     } catch (error) {
         console.error(error)
