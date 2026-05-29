@@ -3,6 +3,7 @@ import Register from './pages/register'
 import Dashboard from './pages/Dashboard'
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
 import ProtectedRoute from './routes/protectedRoute'
+import Timer from './pages/timer'
 
 
 function App() {
@@ -14,6 +15,11 @@ function App() {
         <Route path="/dashboard" element={
           <ProtectedRoute>
             <Dashboard />
+          </ProtectedRoute>
+        } />
+        <Route path="/timer" element={
+          <ProtectedRoute>
+            <Timer />
           </ProtectedRoute>
         } />
       </Routes>
