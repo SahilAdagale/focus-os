@@ -17,3 +17,10 @@ export const completeSession = async (sessionId) => {
     })
     return response.data
 }
+
+export const getSessions = async () => {
+    const response = await axios.get(`${API}`, {
+        headers: { Authorization: `Bearer ${getToken()}` }
+    })
+    return response.data
+}

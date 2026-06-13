@@ -32,4 +32,14 @@ const completeSession = async (req, res) => {
     }
 }
 
-module.exports = { startSession, completeSession }
+const getSessions = async (req, res) => {
+    try {
+        const sessions = await Session.find({ userId: req.user.id })
+        res.status(200).json({ sessions })
+    } catch (error) {
+        console.log(error)
+        res.status(500).json({ message: 'Internal server error' })
+    }
+}
+
+module.exports = { startSession, completeSession, getSessions }
