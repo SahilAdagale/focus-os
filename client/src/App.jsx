@@ -4,11 +4,12 @@ import Dashboard from './pages/Dashboard'
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
 import ProtectedRoute from './routes/protectedRoute'
 import Timer from './pages/timer'
-
+import Navbar from './components/navbar'
 
 function App() {
   return (
     <Router>
+      <Navbar />
       <Routes>
         <Route path="/register" element={<Register />} />
         <Route path="/login" element={<Login />} />
