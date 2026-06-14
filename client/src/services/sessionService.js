@@ -1,26 +1,16 @@
-import axios from 'axios'
-
-const API = 'http://localhost:8080/api/session'
-
-const getToken = () => localStorage.getItem('token')
+import api from './api'
 
 export const startSession = async () => {
-    const response = await axios.post(`${API}/start`, {}, {
-        headers: { Authorization: `Bearer ${getToken()}` }
-    })
+    const response = await api.post('/session/start', {})
     return response.data
 }
 
 export const completeSession = async (sessionId) => {
-    const response = await axios.put(`${API}/${sessionId}/complete`, {}, {
-        headers: { Authorization: `Bearer ${getToken()}` }
-    })
+    const response = await api.put(`/session/${sessionId}/complete`, {})
     return response.data
 }
 
 export const getSessions = async () => {
-    const response = await axios.get(`${API}`, {
-        headers: { Authorization: `Bearer ${getToken()}` }
-    })
+    const response = await api.get('/session')
     return response.data
 }

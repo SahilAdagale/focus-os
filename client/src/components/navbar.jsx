@@ -1,8 +1,14 @@
 import { Link, useNavigate } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext'
 
 function Navbar() {
-    const token = localStorage.getItem('token')
+    const { isAuthenticated, logout } = useAuth()
     const navigate = useNavigate()
+
+    const handleLogout = () => {
+        logout()
+        navigate('/login')
+    }
 
     return (
         <nav style={{
@@ -18,11 +24,11 @@ function Navbar() {
             </Link>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                {token ? (
+                {isAuthenticated ? (
                     <>
                         <Link to="/dashboard" style={{ fontSize: '13px', color: '#888', padding: '6px 12px' }}>Dashboard</Link>
                         <Link to="/timer" style={{ fontSize: '13px', color: '#888', padding: '6px 12px' }}>Timer</Link>
-                        <button onClick={() => { localStorage.removeItem('token'); navigate('/login') }}
+                        <button onClick={handleLogout}
                             style={{ fontSize: '13px', padding: '6px 14px', borderRadius: '6px', border: '1px solid #2a2a2a', background: 'none', color: '#e8e8e8' }}>
                             Logout
                         </button>
