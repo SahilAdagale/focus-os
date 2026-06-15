@@ -14,6 +14,7 @@ function Timer() {
     const [mode, setMode] = useState('focus') // 'focus' | 'break'
     const [toast, setToast] = useState(null)
     const [pomodoroCount, setPomodoroCount] = useState(0)
+    const [autoStart, setAutoStart] = useState(false)
     const sessionIdRef = useRef(null)
     const hasStartedRef = useRef(false) // tracks if this session was ever started (for resume)
 
@@ -74,20 +75,33 @@ function Timer() {
     }
 
     // Switch to break mode
-    const switchToBreak = useCallback(() => {
+    const switchToBreak = useCallback((shouldStart = false) => {
         const breakMinutes = (pomodoroCount + 1) % 4 === 0 ? 15 : 5
         setMode('break')
         setSeconds(breakMinutes * 60)
         hasStartedRef.current = false
         sessionIdRef.current = null
+        if (shouldStart) {
+            setIsRunning(true)
+            hasStartedRef.current = true
+        }
     }, [pomodoroCount])
 
     // Switch back to focus mode
-    const switchToFocus = useCallback(() => {
+    const switchToFocus = useCallback((shouldStart = false) => {
         setMode('focus')
         setSeconds(duration * 60)
         hasStartedRef.current = false
         sessionIdRef.current = null
+        if (shouldStart) {
+            startSession().then(data => {
+                sessionIdRef.current = data.session._id
+                setIsRunning(true)
+                hasStartedRef.current = true
+            }).catch(() => {
+                setToast({ message: 'Failed to start session', type: 'success' })
+            })
+        }
     }, [duration])
 
     // Countdown logic
@@ -129,7 +143,7 @@ function Timer() {
                 } catch (e) { /* audio not available */ }
 
                 // Auto-switch to break after a short delay
-                setTimeout(switchToBreak, 1500)
+                setTimeout(() => switchToBreak(autoStart), 1500)
             } else {
                 // Break ended
                 setToast({ message: 'Break over — let\'s get back to it!', type: 'info' })
@@ -146,7 +160,7 @@ function Timer() {
                     osc.stop(ctx.currentTime + 0.4)
                 } catch (e) { /* audio not available */ }
 
-                setTimeout(switchToFocus, 1500)
+                setTimeout(() => switchToFocus(autoStart), 1500)
             }
             return
         }
@@ -156,7 +170,7 @@ function Timer() {
         }, 1000)
 
         return () => clearInterval(interval)
-    }, [isRunning, seconds, mode, switchToBreak, switchToFocus])
+    }, [isRunning, seconds, mode, autoStart, switchToBreak, switchToFocus])
 
     const minutes = Math.floor(seconds / 60)
     const secs = seconds % 60
@@ -314,6 +328,20 @@ function Timer() {
                             {isRunning ? (mode === 'focus' ? 'Focusing...' : 'Resting...') : (hasStartedRef.current ? 'Paused' : currentMode.label)}
                         </p>
                     </div>
+                </div>
+
+                {/* Auto-start toggle */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '24px' }}>
+                    <input
+                        type="checkbox"
+                        id="autoStart"
+                        checked={autoStart}
+                        onChange={(e) => setAutoStart(e.target.checked)}
+                        style={{ accentColor: currentMode.color, cursor: 'pointer', width: '16px', height: '16px' }}
+                    />
+                    <label htmlFor="autoStart" style={{ fontSize: '13px', color: '#888', cursor: 'pointer' }}>
+                        Auto-start next timer (Pomodoro flow)
+                    </label>
                 </div>
 
                 {/* Controls */}
