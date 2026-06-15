@@ -46,7 +46,7 @@ function Timer() {
     const handleStart = async () => {
         if (mode === 'focus' && !hasStartedRef.current) {
             try {
-                const data = await startSession()
+                const data = await startSession(duration * 60)
                 sessionIdRef.current = data.session._id
             } catch (err) {
                 setToast({ message: 'Failed to start session', type: 'success' })
@@ -94,7 +94,7 @@ function Timer() {
         hasStartedRef.current = false
         sessionIdRef.current = null
         if (shouldStart) {
-            startSession().then(data => {
+            startSession(duration * 60).then(data => {
                 sessionIdRef.current = data.session._id
                 setIsRunning(true)
                 hasStartedRef.current = true

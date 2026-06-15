@@ -1,9 +1,13 @@
 import { useEffect, useState } from 'react'
-import { getSessions } from '../services/sessionService'
+import { getSessions, deleteSession } from '../services/sessionService'
+import { Link } from 'react-router-dom'
+
+const DAILY_GOAL_MINUTES = 120
 
 function Dashboard() {
     const [sessions, setSessions] = useState([])
     const [loading, setLoading] = useState(true)
+    const [deletingId, setDeletingId] = useState(null)
 
     useEffect(() => {
         const fetchSessions = async () => {
@@ -19,15 +23,27 @@ function Dashboard() {
         fetchSessions()
     }, [])
 
+    const handleDelete = async (sessionId) => {
+        setDeletingId(sessionId)
+        try {
+            await deleteSession(sessionId)
+            setSessions(prev => prev.filter(s => s._id !== sessionId))
+        } catch (err) {
+            console.error('Failed to delete session:', err)
+        } finally {
+            setDeletingId(null)
+        }
+    }
+
     const completedSessions = sessions.filter(s => s.status === 'completed')
 
-    // Filter sessions that were started today
     const today = new Date()
     today.setHours(0, 0, 0, 0)
     const todaySessions = completedSessions.filter(s => new Date(s.startTime) >= today)
     const todayMinutes = Math.floor(
         todaySessions.reduce((sum, s) => sum + s.duration, 0) / 60
     )
+    const goalProgress = Math.min((todayMinutes / DAILY_GOAL_MINUTES) * 100, 100)
 
     const totalMinutes = Math.floor(
         completedSessions.reduce((sum, s) => sum + s.duration, 0) / 60
@@ -48,7 +64,8 @@ function Dashboard() {
                 {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
             </p>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginBottom: '32px' }}>
+            {/* Stat cards */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginBottom: '20px' }}>
                 <div style={{ background: '#111', border: '1px solid #1e1e1e', borderRadius: '10px', padding: '16px' }}>
                     <p style={{ fontSize: '12px', color: '#666', marginBottom: '6px' }}>Sessions today</p>
                     <p style={{ fontSize: '24px', fontWeight: '500' }}>{todaySessions.length}</p>
@@ -63,33 +80,97 @@ function Dashboard() {
                 </div>
             </div>
 
+            {/* Daily goal progress */}
+            <div style={{
+                background: '#111',
+                border: '1px solid #1e1e1e',
+                borderRadius: '10px',
+                padding: '16px 20px',
+                marginBottom: '32px',
+            }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                    <p style={{ fontSize: '13px', color: '#888' }}>Daily goal</p>
+                    <p style={{ fontSize: '12px', color: goalProgress >= 100 ? '#1D9E75' : '#555' }}>
+                        {goalProgress >= 100 ? '🎉 Goal reached!' : `${todayMinutes} / ${DAILY_GOAL_MINUTES} min`}
+                    </p>
+                </div>
+                <div style={{ height: '6px', background: '#1a1a1a', borderRadius: '3px', overflow: 'hidden' }}>
+                    <div style={{
+                        height: '100%',
+                        width: `${goalProgress}%`,
+                        background: goalProgress >= 100 ? '#1D9E75' : '#534AB7',
+                        borderRadius: '3px',
+                        transition: 'width 0.6s ease',
+                    }} />
+                </div>
+            </div>
+
+            {/* Session history */}
             <h2 style={{ fontSize: '14px', fontWeight: '500', marginBottom: '12px' }}>Recent sessions</h2>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 {completedSessions.length === 0 ? (
                     <div style={{
-                        padding: '40px 20px',
+                        padding: '48px 20px',
                         textAlign: 'center',
                         background: '#111',
                         border: '1px solid #1e1e1e',
                         borderRadius: '10px'
                     }}>
                         <p style={{ fontSize: '14px', color: '#666', marginBottom: '8px' }}>No sessions yet</p>
-                        <p style={{ fontSize: '13px', color: '#555' }}>Start a focus session from the Timer page to see your history here.</p>
+                        <p style={{ fontSize: '13px', color: '#555', marginBottom: '20px' }}>Start your first focus session to see your history here.</p>
+                        <Link to="/timer" style={{
+                            display: 'inline-block',
+                            padding: '8px 20px',
+                            background: '#534AB7',
+                            borderRadius: '8px',
+                            color: '#fff',
+                            fontSize: '13px',
+                            fontWeight: '500',
+                        }}>Start a session →</Link>
                     </div>
                 ) : (
-                    completedSessions.slice().reverse().map(session => (
+                    completedSessions.map(session => (
                         <div key={session._id} style={{
                             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                            padding: '12px 16px', background: '#111', border: '1px solid #1e1e1e', borderRadius: '10px'
+                            padding: '12px 16px', background: '#111', border: '1px solid #1e1e1e', borderRadius: '10px',
+                            opacity: deletingId === session._id ? 0.4 : 1,
+                            transition: 'opacity 0.2s ease',
                         }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#1D9E75' }}></div>
+                                <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#1D9E75', flexShrink: 0 }}></div>
                                 <span style={{ fontSize: '13px', color: '#888' }}>
                                     {new Date(session.startTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} · {new Date(session.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                 </span>
-                                <span style={{ fontSize: '13px' }}>{Math.floor(session.duration / 60)} min {Math.floor(session.duration % 60)} sec</span>
+                                <span style={{ fontSize: '13px' }}>{Math.floor(session.duration / 60)} min {Math.round(session.duration % 60)} sec</span>
+                                {session.plannedDuration > 0 && (
+                                    <span style={{ fontSize: '11px', color: '#555' }}>
+                                        / {Math.floor(session.plannedDuration / 60)} min goal
+                                    </span>
+                                )}
                             </div>
-                            <span style={{ fontSize: '11px', padding: '3px 8px', borderRadius: '20px', background: '#0d2b1e', color: '#1D9E75' }}>completed</span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <span style={{ fontSize: '11px', padding: '3px 8px', borderRadius: '20px', background: '#0d2b1e', color: '#1D9E75' }}>completed</span>
+                                <button
+                                    onClick={() => handleDelete(session._id)}
+                                    disabled={deletingId === session._id}
+                                    title="Delete session"
+                                    style={{
+                                        background: 'none',
+                                        border: '1px solid transparent',
+                                        color: '#555',
+                                        fontSize: '14px',
+                                        padding: '3px 6px',
+                                        borderRadius: '6px',
+                                        cursor: 'pointer',
+                                        lineHeight: 1,
+                                        transition: 'color 0.2s, border-color 0.2s',
+                                    }}
+                                    onMouseEnter={e => { e.currentTarget.style.color = '#E24B4A'; e.currentTarget.style.borderColor = '#3a1a1a' }}
+                                    onMouseLeave={e => { e.currentTarget.style.color = '#555'; e.currentTarget.style.borderColor = 'transparent' }}
+                                >
+                                    ✕
+                                </button>
+                            </div>
                         </div>
                     ))
                 )}

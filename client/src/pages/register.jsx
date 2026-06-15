@@ -18,8 +18,24 @@ function Register() {
 
     const handleSubmit = async (e) => {
         e.preventDefault()
-        setLoading(true)
         setError('')
+
+        // Client-side validation
+        if (name.trim().length < 1) {
+            setError('Name is required')
+            return
+        }
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+        if (!emailRegex.test(email)) {
+            setError('Please enter a valid email address')
+            return
+        }
+        if (password.length < 8) {
+            setError('Password must be at least 8 characters')
+            return
+        }
+
+        setLoading(true)
         try {
             const data = await register(name, email, password)
             loginAuth(data.token, data.user)
@@ -57,7 +73,7 @@ function Register() {
                         style={{ padding: '10px 14px', background: '#1a1a1a', border: '1px solid #2a2a2a', borderRadius: '8px', color: '#e8e8e8', fontSize: '14px' }} />
                     <input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} required
                         style={{ padding: '10px 14px', background: '#1a1a1a', border: '1px solid #2a2a2a', borderRadius: '8px', color: '#e8e8e8', fontSize: '14px' }} />
-                    <input type="password" placeholder="Password (min 6 characters)" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6}
+                    <input type="password" placeholder="Password (min 8 characters)" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8}
                         style={{ padding: '10px 14px', background: '#1a1a1a', border: '1px solid #2a2a2a', borderRadius: '8px', color: '#e8e8e8', fontSize: '14px' }} />
                     <button type="submit" disabled={loading}
                         style={{ padding: '10px', background: loading ? '#3d3690' : '#534AB7', border: 'none', borderRadius: '8px', color: '#fff', fontSize: '14px', fontWeight: '500', marginTop: '4px', opacity: loading ? 0.7 : 1 }}>

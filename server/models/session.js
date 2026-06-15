@@ -19,6 +19,10 @@ const sessionSchema = new mongoose.Schema({
         enum: ["active", "completed", "cancelled"],
         default: "active"
     },
+    plannedDuration: {
+        type: Number,
+        default: 0
+    },
     duration: {
         type: Number,
         default: 0

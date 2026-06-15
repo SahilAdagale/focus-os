@@ -17,8 +17,20 @@ function Login() {
 
     const handleSubmit = async (e) => {
         e.preventDefault()
-        setLoading(true)
         setError('')
+
+        // Client-side validation
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+        if (!emailRegex.test(email)) {
+            setError('Please enter a valid email address')
+            return
+        }
+        if (password.length < 1) {
+            setError('Password is required')
+            return
+        }
+
+        setLoading(true)
         try {
             const data = await login(email, password)
             loginAuth(data.token, data.user)

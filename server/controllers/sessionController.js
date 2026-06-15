@@ -2,9 +2,11 @@ const Session = require('../models/session')
 
 const startSession = async (req, res) => {
     try {
+        const { plannedDuration } = req.body
         const session = new Session({
             userId: req.user.id,
-            startTime: new Date()
+            startTime: new Date(),
+            plannedDuration: plannedDuration || 0
         })
 
         await session.save()
@@ -34,7 +36,7 @@ const completeSession = async (req, res) => {
 
 const getSessions = async (req, res) => {
     try {
-        const sessions = await Session.find({ userId: req.user.id })
+        const sessions = await Session.find({ userId: req.user.id }).sort({ startTime: -1 })
         res.status(200).json({ sessions })
     } catch (error) {
         console.log(error)
@@ -42,4 +44,18 @@ const getSessions = async (req, res) => {
     }
 }
 
-module.exports = { startSession, completeSession, getSessions }
+const deleteSession = async (req, res) => {
+    try {
+        const session = await Session.findOne({ _id: req.params.id, userId: req.user.id })
+        if (!session) {
+            return res.status(404).json({ message: "Session not found" })
+        }
+        await session.deleteOne()
+        res.status(200).json({ message: "Session deleted" })
+    } catch (error) {
+        console.log(error)
+        res.status(500).json({ message: "Internal server error" })
+    }
+}
+
+module.exports = { startSession, completeSession, getSessions, deleteSession }
