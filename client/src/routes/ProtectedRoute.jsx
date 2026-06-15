@@ -9,7 +9,22 @@ function ProtectedRoute({ children }) {
     }
 
     if (!isAuthenticated) {
-        return <Navigate to="/login" />
+        return <Navigate to="/login" replace />
+    }
+
+    return children
+}
+
+// Redirects already-authenticated users away from login/register pages
+export function PublicRoute({ children }) {
+    const { isAuthenticated, loading } = useAuth()
+
+    if (loading) {
+        return null
+    }
+
+    if (isAuthenticated) {
+        return <Navigate to="/dashboard" replace />
     }
 
     return children
