@@ -28,6 +28,7 @@ function Navbar() {
                     <>
                         <Link to="/dashboard" style={{ fontSize: '13px', color: '#888', padding: '6px 12px' }}>Dashboard</Link>
                         <Link to="/timer" style={{ fontSize: '13px', color: '#888', padding: '6px 12px' }}>Timer</Link>
+                        <Link to="/analytics" style={{ fontSize: '13px', color: '#888', padding: '6px 12px' }}>Analytics</Link>
                         <button onClick={handleLogout}
                             style={{ fontSize: '13px', padding: '6px 14px', borderRadius: '6px', border: '1px solid #2a2a2a', background: 'none', color: '#e8e8e8' }}>
                             Logout
