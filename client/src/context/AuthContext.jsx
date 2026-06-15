@@ -3,18 +3,19 @@ import { createContext, useContext, useState, useEffect } from 'react'
 const AuthContext = createContext(null)
 
 export function AuthProvider({ children }) {
+    // localStorage.getItem is synchronous — auth state is known immediately,
+    // so loading starts as false (no async check needed).
     const [token, setToken] = useState(localStorage.getItem('token'))
     const [user, setUser] = useState(null)
-    const [loading, setLoading] = useState(true)
+    const [loading, setLoading] = useState(false)
 
     useEffect(() => {
-        // Sync token to localStorage whenever it changes
+        // Sync token changes back to localStorage
         if (token) {
             localStorage.setItem('token', token)
         } else {
             localStorage.removeItem('token')
         }
-        setLoading(false)
     }, [token])
 
     const loginAuth = (newToken, userData) => {

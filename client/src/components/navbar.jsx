@@ -1,4 +1,4 @@
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
 function Navbar() {
@@ -10,6 +10,14 @@ function Navbar() {
         navigate('/login')
     }
 
+    const navLinkStyle = ({ isActive }) => ({
+        fontSize: '13px',
+        color: isActive ? '#7F77DD' : '#888',
+        padding: '6px 12px',
+        fontWeight: isActive ? '500' : '400',
+        textDecoration: 'none',
+    })
+
     return (
         <nav style={{
             display: 'flex',
@@ -19,25 +27,25 @@ function Navbar() {
             borderBottom: '1px solid #1e1e1e',
             background: '#0a0a0a'
         }}>
-            <Link to="/dashboard" style={{ fontSize: '16px', fontWeight: '500', color: '#e8e8e8' }}>
+            <Link to="/dashboard" style={{ fontSize: '16px', fontWeight: '500', color: '#e8e8e8', textDecoration: 'none' }}>
                 Focus<span style={{ color: '#7F77DD' }}>OS</span>
             </Link>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 {isAuthenticated ? (
                     <>
-                        <Link to="/dashboard" style={{ fontSize: '13px', color: '#888', padding: '6px 12px' }}>Dashboard</Link>
-                        <Link to="/timer" style={{ fontSize: '13px', color: '#888', padding: '6px 12px' }}>Timer</Link>
-                        <Link to="/analytics" style={{ fontSize: '13px', color: '#888', padding: '6px 12px' }}>Analytics</Link>
+                        <NavLink to="/dashboard" style={navLinkStyle}>Dashboard</NavLink>
+                        <NavLink to="/timer" style={navLinkStyle}>Timer</NavLink>
+                        <NavLink to="/analytics" style={navLinkStyle}>Analytics</NavLink>
                         <button onClick={handleLogout}
-                            style={{ fontSize: '13px', padding: '6px 14px', borderRadius: '6px', border: '1px solid #2a2a2a', background: 'none', color: '#e8e8e8' }}>
+                            style={{ fontSize: '13px', padding: '6px 14px', borderRadius: '6px', border: '1px solid #2a2a2a', background: 'none', color: '#e8e8e8', cursor: 'pointer' }}>
                             Logout
                         </button>
                     </>
                 ) : (
                     <>
-                        <Link to="/login" style={{ fontSize: '13px', color: '#888', padding: '6px 12px' }}>Login</Link>
-                        <Link to="/register" style={{ fontSize: '13px', padding: '6px 14px', borderRadius: '6px', border: '1px solid #2a2a2a', color: '#e8e8e8' }}>Register</Link>
+                        <NavLink to="/login" style={navLinkStyle}>Login</NavLink>
+                        <Link to="/register" style={{ fontSize: '13px', padding: '6px 14px', borderRadius: '6px', border: '1px solid #2a2a2a', color: '#e8e8e8', textDecoration: 'none' }}>Register</Link>
                     </>
                 )}
             </div>
