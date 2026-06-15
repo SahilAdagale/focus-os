@@ -2,7 +2,7 @@ import { Link, NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
 function Navbar() {
-    const { isAuthenticated, logout } = useAuth()
+    const { isAuthenticated, logout, user } = useAuth()
     const navigate = useNavigate()
 
     const handleLogout = () => {
@@ -37,6 +37,10 @@ function Navbar() {
                         <NavLink to="/dashboard" style={navLinkStyle}>Dashboard</NavLink>
                         <NavLink to="/timer" style={navLinkStyle}>Timer</NavLink>
                         <NavLink to="/analytics" style={navLinkStyle}>Analytics</NavLink>
+                        <NavLink to="/settings" style={navLinkStyle}>Settings</NavLink>
+                        {user?.name && (
+                            <span style={{ fontSize: '13px', color: '#555', padding: '0 4px' }}>·</span>
+                        )}
                         <button onClick={handleLogout}
                             style={{ fontSize: '13px', padding: '6px 14px', borderRadius: '6px', border: '1px solid #2a2a2a', background: 'none', color: '#e8e8e8', cursor: 'pointer' }}>
                             Logout

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { startSession, completeSession } from '../services/sessionService'
 import Toast from '../components/Toast'
+import { useAuth } from '../context/AuthContext'
 
 const MODES = {
     focus: { label: 'Focus', color: '#534AB7', colorDim: '#3d3690', glow: 'rgba(83, 74, 183, 0.15)' },
@@ -8,8 +9,9 @@ const MODES = {
 }
 
 function Timer() {
-    const [duration, setDuration] = useState(25)
-    const [seconds, setSeconds] = useState(1500)
+    const { settings } = useAuth()
+    const [duration, setDuration] = useState(settings.defaultDuration)
+    const [seconds, setSeconds] = useState(settings.defaultDuration * 60)
     const [isRunning, setIsRunning] = useState(false)
     const [mode, setMode] = useState('focus') // 'focus' | 'break'
     const [toast, setToast] = useState(null)
@@ -128,37 +130,41 @@ function Timer() {
                 setToast({ message: 'Focus session complete! Time for a break.', type: 'success' })
 
                 // Play a subtle chime sound
-                try {
-                    const ctx = new (window.AudioContext || window.webkitAudioContext)()
-                    const osc = ctx.createOscillator()
-                    const gain = ctx.createGain()
-                    osc.connect(gain)
-                    gain.connect(ctx.destination)
-                    osc.frequency.setValueAtTime(587, ctx.currentTime) // D5
-                    osc.frequency.setValueAtTime(784, ctx.currentTime + 0.15) // G5
-                    gain.gain.setValueAtTime(0.15, ctx.currentTime)
-                    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.6)
-                    osc.start(ctx.currentTime)
-                    osc.stop(ctx.currentTime + 0.6)
-                } catch (e) { /* audio not available */ }
+                if (settings.soundEnabled) {
+                    try {
+                        const ctx = new (window.AudioContext || window.webkitAudioContext)()
+                        const osc = ctx.createOscillator()
+                        const gain = ctx.createGain()
+                        osc.connect(gain)
+                        gain.connect(ctx.destination)
+                        osc.frequency.setValueAtTime(587, ctx.currentTime) // D5
+                        osc.frequency.setValueAtTime(784, ctx.currentTime + 0.15) // G5
+                        gain.gain.setValueAtTime(0.15, ctx.currentTime)
+                        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.6)
+                        osc.start(ctx.currentTime)
+                        osc.stop(ctx.currentTime + 0.6)
+                    } catch (e) { /* audio not available */ }
+                }
 
                 // Auto-switch to break after a short delay
                 setTimeout(() => switchToBreak(autoStart), 1500)
             } else {
                 // Break ended
                 setToast({ message: 'Break over — let\'s get back to it!', type: 'info' })
-                try {
-                    const ctx = new (window.AudioContext || window.webkitAudioContext)()
-                    const osc = ctx.createOscillator()
-                    const gain = ctx.createGain()
-                    osc.connect(gain)
-                    gain.connect(ctx.destination)
-                    osc.frequency.setValueAtTime(523, ctx.currentTime) // C5
-                    gain.gain.setValueAtTime(0.12, ctx.currentTime)
-                    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.4)
-                    osc.start(ctx.currentTime)
-                    osc.stop(ctx.currentTime + 0.4)
-                } catch (e) { /* audio not available */ }
+                if (settings.soundEnabled) {
+                    try {
+                        const ctx = new (window.AudioContext || window.webkitAudioContext)()
+                        const osc = ctx.createOscillator()
+                        const gain = ctx.createGain()
+                        osc.connect(gain)
+                        gain.connect(ctx.destination)
+                        osc.frequency.setValueAtTime(523, ctx.currentTime) // C5
+                        gain.gain.setValueAtTime(0.12, ctx.currentTime)
+                        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.4)
+                        osc.start(ctx.currentTime)
+                        osc.stop(ctx.currentTime + 0.4)
+                    } catch (e) { /* audio not available */ }
+                }
 
                 setTimeout(() => switchToFocus(autoStart), 1500)
             }

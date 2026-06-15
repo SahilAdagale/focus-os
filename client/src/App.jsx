@@ -5,6 +5,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import ProtectedRoute, { PublicRoute } from './routes/ProtectedRoute'
 import Timer from './pages/timer'
 import Analytics from './pages/Analytics'
+import Settings from './pages/Settings'
 import Navbar from './components/navbar'
 import { AuthProvider } from './context/AuthContext'
 
@@ -38,6 +39,11 @@ function App() {
           <Route path="/analytics" element={
             <ProtectedRoute>
               <Analytics />
+            </ProtectedRoute>
+          } />
+          <Route path="/settings" element={
+            <ProtectedRoute>
+              <Settings />
             </ProtectedRoute>
           } />
           {/* Catch-all: redirect unknown URLs to root */}

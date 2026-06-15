@@ -1,16 +1,23 @@
-import { createContext, useContext, useState, useEffect } from 'react'
+import { createContext, useContext, useState, useEffect, useCallback } from 'react'
+import { getMe } from '../services/userService'
 
 const AuthContext = createContext(null)
 
+const DEFAULT_SETTINGS = {
+    defaultDuration: 25,
+    dailyGoal: 120,
+    soundEnabled: true,
+}
+
 export function AuthProvider({ children }) {
-    // localStorage.getItem is synchronous — auth state is known immediately,
-    // so loading starts as false (no async check needed).
     const [token, setToken] = useState(localStorage.getItem('token'))
     const [user, setUser] = useState(null)
-    const [loading, setLoading] = useState(false)
+    const [settings, setSettings] = useState(DEFAULT_SETTINGS)
+    // loading stays true until we've fetched the user profile (or confirmed no token)
+    const [loading, setLoading] = useState(!!localStorage.getItem('token'))
 
+    // Sync token to localStorage on change
     useEffect(() => {
-        // Sync token changes back to localStorage
         if (token) {
             localStorage.setItem('token', token)
         } else {
@@ -18,23 +25,66 @@ export function AuthProvider({ children }) {
         }
     }, [token])
 
+    // Fetch user profile + settings whenever we have a token
+    const fetchUser = useCallback(async () => {
+        if (!token) {
+            setLoading(false)
+            return
+        }
+        try {
+            const data = await getMe()
+            const { password, ...safeUser } = data.user
+            setUser(safeUser)
+            setSettings({
+                defaultDuration: data.user.defaultDuration ?? DEFAULT_SETTINGS.defaultDuration,
+                dailyGoal: data.user.dailyGoal ?? DEFAULT_SETTINGS.dailyGoal,
+                soundEnabled: data.user.soundEnabled ?? DEFAULT_SETTINGS.soundEnabled,
+            })
+        } catch {
+            // Token invalid/expired — clear auth
+            setToken(null)
+            setUser(null)
+            setSettings(DEFAULT_SETTINGS)
+        } finally {
+            setLoading(false)
+        }
+    }, [token])
+
+    useEffect(() => {
+        fetchUser()
+    }, [fetchUser])
+
     const loginAuth = (newToken, userData) => {
         setToken(newToken)
-        setUser(userData)
+        // User profile + settings will be loaded by the fetchUser effect
     }
 
     const logout = () => {
         setToken(null)
         setUser(null)
+        setSettings(DEFAULT_SETTINGS)
+    }
+
+    // Called from Settings page after a successful update
+    const applySettings = (updatedUser) => {
+        const { password, ...safeUser } = updatedUser
+        setUser(safeUser)
+        setSettings({
+            defaultDuration: updatedUser.defaultDuration ?? DEFAULT_SETTINGS.defaultDuration,
+            dailyGoal: updatedUser.dailyGoal ?? DEFAULT_SETTINGS.dailyGoal,
+            soundEnabled: updatedUser.soundEnabled ?? DEFAULT_SETTINGS.soundEnabled,
+        })
     }
 
     const value = {
         token,
         user,
+        settings,
         loading,
         isAuthenticated: !!token,
         loginAuth,
-        logout
+        logout,
+        applySettings,
     }
 
     return (

@@ -15,6 +15,18 @@ const userSchema = new mongoose.Schema({
   password: {
     type: String,
     required: true
+  },
+  defaultDuration: {
+    type: Number,
+    default: 25
+  },
+  dailyGoal: {
+    type: Number,
+    default: 120
+  },
+  soundEnabled: {
+    type: Boolean,
+    default: true
   }
 }, { timestamps: true });
 

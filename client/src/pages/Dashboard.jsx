@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
 import { getSessions, deleteSession } from '../services/sessionService'
 import { Link } from 'react-router-dom'
-
-const DAILY_GOAL_MINUTES = 120
+import { useAuth } from '../context/AuthContext'
 
 function Dashboard() {
+    const { settings } = useAuth()
+    const DAILY_GOAL_MINUTES = settings.dailyGoal
     const [sessions, setSessions] = useState([])
     const [loading, setLoading] = useState(true)
     const [deletingId, setDeletingId] = useState(null)
