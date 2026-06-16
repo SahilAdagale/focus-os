@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { getSessions, deleteSession } from '../services/sessionService'
-import { getTasks } from '../services/taskService'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
@@ -8,16 +7,14 @@ function Dashboard() {
     const { settings } = useAuth()
     const DAILY_GOAL_MINUTES = settings.dailyGoal
     const [sessions, setSessions] = useState([])
-    const [tasks, setTasks] = useState([])
     const [loading, setLoading] = useState(true)
     const [deletingId, setDeletingId] = useState(null)
 
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const [sessionData, taskData] = await Promise.all([getSessions(), getTasks()])
+                const sessionData = await getSessions()
                 setSessions(sessionData.sessions)
-                setTasks(taskData.tasks)
             } catch (err) {
                 console.error('Failed to fetch data:', err)
             } finally {
@@ -149,6 +146,20 @@ function Dashboard() {
                                 {session.plannedDuration > 0 && (
                                     <span style={{ fontSize: '11px', color: '#555' }}>
                                         / {Math.floor(session.plannedDuration / 60)} min goal
+                                    </span>
+                                )}
+                                {session.taskId && (
+                                    <span style={{
+                                        fontSize: '11px',
+                                        color: '#a9a3f5',
+                                        background: 'rgba(83, 74, 183, 0.15)',
+                                        padding: '2px 8px',
+                                        borderRadius: '12px',
+                                        fontWeight: '500',
+                                        border: '1px solid rgba(83, 74, 183, 0.3)',
+                                        marginLeft: '4px',
+                                    }}>
+                                        📌 {session.taskId.title}
                                     </span>
                                 )}
                             </div>
