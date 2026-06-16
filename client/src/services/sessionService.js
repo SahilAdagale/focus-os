@@ -1,7 +1,7 @@
 import api from './api'
 
-export const startSession = async (plannedDuration = 0) => {
-    const response = await api.post('/session/start', { plannedDuration })
+export const startSession = async (plannedDuration = 0, taskId = null) => {
+    const response = await api.post('/session/start', { plannedDuration, taskId })
     return response.data
 }
 

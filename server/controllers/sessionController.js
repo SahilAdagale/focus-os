@@ -2,11 +2,12 @@ const Session = require('../models/session')
 
 const startSession = async (req, res) => {
     try {
-        const { plannedDuration } = req.body
+        const { plannedDuration, taskId } = req.body
         const session = new Session({
             userId: req.user.id,
             startTime: new Date(),
-            plannedDuration: plannedDuration || 0
+            plannedDuration: plannedDuration || 0,
+            taskId: taskId || null
         })
 
         await session.save()
@@ -36,7 +37,7 @@ const completeSession = async (req, res) => {
 
 const getSessions = async (req, res) => {
     try {
-        const sessions = await Session.find({ userId: req.user.id }).sort({ startTime: -1 })
+        const sessions = await Session.find({ userId: req.user.id }).populate('taskId').sort({ startTime: -1 })
         res.status(200).json({ sessions })
     } catch (error) {
         console.log(error)

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { getSessions, deleteSession } from '../services/sessionService'
+import { getTasks } from '../services/taskService'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
@@ -7,21 +8,23 @@ function Dashboard() {
     const { settings } = useAuth()
     const DAILY_GOAL_MINUTES = settings.dailyGoal
     const [sessions, setSessions] = useState([])
+    const [tasks, setTasks] = useState([])
     const [loading, setLoading] = useState(true)
     const [deletingId, setDeletingId] = useState(null)
 
     useEffect(() => {
-        const fetchSessions = async () => {
+        const fetchData = async () => {
             try {
-                const data = await getSessions()
-                setSessions(data.sessions)
+                const [sessionData, taskData] = await Promise.all([getSessions(), getTasks()])
+                setSessions(sessionData.sessions)
+                setTasks(taskData.tasks)
             } catch (err) {
-                console.error('Failed to fetch sessions:', err)
+                console.error('Failed to fetch data:', err)
             } finally {
                 setLoading(false)
             }
         }
-        fetchSessions()
+        fetchData()
     }, [])
 
     const handleDelete = async (sessionId) => {

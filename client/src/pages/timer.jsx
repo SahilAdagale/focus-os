@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { startSession, completeSession } from '../services/sessionService'
 import Toast from '../components/Toast'
 import { useAuth } from '../context/AuthContext'
+import TaskPanel from '../components/TaskPanel'
 
 const MODES = {
     focus: { label: 'Focus', color: '#534AB7', colorDim: '#3d3690', glow: 'rgba(83, 74, 183, 0.15)' },
@@ -17,6 +18,8 @@ function Timer() {
     const [toast, setToast] = useState(null)
     const [pomodoroCount, setPomodoroCount] = useState(0)
     const [autoStart, setAutoStart] = useState(false)
+    const [selectedTaskId, setSelectedTaskId] = useState(null)
+    const [selectedTaskTitle, setSelectedTaskTitle] = useState(null)
     const sessionIdRef = useRef(null)
     const hasStartedRef = useRef(false) // tracks if this session was ever started (for resume)
 
@@ -48,7 +51,7 @@ function Timer() {
     const handleStart = async () => {
         if (mode === 'focus' && !hasStartedRef.current) {
             try {
-                const data = await startSession(duration * 60)
+                const data = await startSession(duration * 60, selectedTaskId)
                 sessionIdRef.current = data.session._id
             } catch (err) {
                 setToast({ message: 'Failed to start session', type: 'success' })
@@ -96,7 +99,7 @@ function Timer() {
         hasStartedRef.current = false
         sessionIdRef.current = null
         if (shouldStart) {
-            startSession(duration * 60).then(data => {
+            startSession(duration * 60, selectedTaskId).then(data => {
                 sessionIdRef.current = data.session._id
                 setIsRunning(true)
                 hasStartedRef.current = true
@@ -104,7 +107,7 @@ function Timer() {
                 setToast({ message: 'Failed to start session', type: 'success' })
             })
         }
-    }, [duration])
+    }, [duration, selectedTaskId])
 
     // Countdown logic
     useEffect(() => {
@@ -185,13 +188,15 @@ function Timer() {
     const isIdle = !isRunning && !hasStartedRef.current
 
     return (
-        <div style={{ padding: '32px 24px', maxWidth: '800px', margin: '0 auto' }}>
+        <div style={{ padding: '32px 24px', maxWidth: '1000px', margin: '0 auto' }}>
             {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
             <h1 style={{ fontSize: '22px', fontWeight: '500', marginBottom: '4px' }}>Focus Timer</h1>
-            <p style={{ fontSize: '14px', color: '#888', marginBottom: '48px' }}>Stay focused, track your sessions</p>
+            <p style={{ fontSize: '14px', color: '#888', marginBottom: '32px' }}>Stay focused, track your sessions</p>
 
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '24px 0' }}>
+            <div style={{ display: 'flex', gap: '24px', alignItems: 'flex-start' }}>
+                {/* Left: Timer controls */}
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '8px 0' }}>
 
                 {/* Mode pills */}
                 <div style={{ display: 'flex', gap: '6px', marginBottom: '32px' }}>
@@ -333,6 +338,19 @@ function Timer() {
                         }}>
                             {isRunning ? (mode === 'focus' ? 'Focusing...' : 'Resting...') : (hasStartedRef.current ? 'Paused' : currentMode.label)}
                         </p>
+                        {selectedTaskTitle && mode === 'focus' && (
+                            <p style={{
+                                fontSize: '10px',
+                                color: '#555',
+                                marginTop: '6px',
+                                maxWidth: '160px',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                            }}>
+                                📌 {selectedTaskTitle}
+                            </p>
+                        )}
                     </div>
                 </div>
 
@@ -415,6 +433,17 @@ function Timer() {
                         </span>
                     </div>
                 )}
+                </div>{/* end left column */}
+
+                {/* Right: Task panel */}
+                <TaskPanel
+                    selectedTaskId={selectedTaskId}
+                    onSelectTask={(id, title) => {
+                        setSelectedTaskId(id)
+                        setSelectedTaskTitle(title)
+                    }}
+                    disabled={isRunning}
+                />
             </div>
 
             {/* Toast animation keyframes */}

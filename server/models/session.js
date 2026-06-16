@@ -7,6 +7,11 @@ const sessionSchema = new mongoose.Schema({
         ref: User,
         required: true
     },
+    taskId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Task',
+        default: null
+    },
     startTime: {
         type: Date,
         required: true
