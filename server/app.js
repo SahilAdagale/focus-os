@@ -4,6 +4,7 @@ const authRoutes = require('./routes/authRoutes');
 const sessionRoutes = require('./routes/sessionRoutes');
 const userRoutes = require('./routes/userRoutes');
 const taskRoutes = require('./routes/taskRoutes');
+const attentionEventRoutes = require('./routes/attentionEventRoutes');
 const cors = require('cors');
 
 app.use(express.json());
@@ -17,5 +18,6 @@ app.use('/api/auth', authRoutes);
 app.use('/api/session', sessionRoutes);
 app.use('/api/user', userRoutes);
 app.use('/api/task', taskRoutes);
+app.use('/api/attention-events', attentionEventRoutes);
 
 module.exports = app;

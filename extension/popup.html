@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Focus OS</title>
+    <link rel="stylesheet" href="popup.css">
+  </head>
+  <body>
+    <main>
+      <header>
+        <h1>Focus OS</h1>
+        <span id="authStatus" class="pill">Checking</span>
+      </header>
+
+      <label>
+        API base
+        <input id="apiBase" type="url" placeholder="http://localhost:8080/api">
+      </label>
+
+      <section id="loginSection">
+        <label>
+          Email
+          <input id="email" type="email" autocomplete="email">
+        </label>
+        <label>
+          Password
+          <input id="password" type="password" autocomplete="current-password">
+        </label>
+        <button id="loginButton" type="button">Log in</button>
+      </section>
+
+      <section>
+        <label>
+          Active session ID
+          <input id="sessionId" type="text" placeholder="Optional Mongo session _id">
+        </label>
+        <label class="toggle">
+          <input id="trackingEnabled" type="checkbox">
+          <span>Track attention events</span>
+        </label>
+      </section>
+
+      <div class="actions">
+        <button id="saveButton" type="button">Save</button>
+        <button id="flushButton" type="button">Flush</button>
+        <button id="logoutButton" type="button">Log out</button>
+      </div>
+
+      <p id="statusText"></p>
+    </main>
+    <script src="popup.js"></script>
+  </body>
+</html>

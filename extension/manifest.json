@@ -1,0 +1,35 @@
+{
+  "manifest_version": 3,
+  "name": "Focus OS Attention Tracker",
+  "description": "Collects browser attention events for Focus OS.",
+  "version": "0.1.0",
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Focus OS"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "http://localhost:5173/*",
+        "http://127.0.0.1:5173/*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "run_at": "document_start"
+    }
+  ],
+  "permissions": [
+    "alarms",
+    "idle",
+    "storage",
+    "tabs"
+  ],
+  "host_permissions": [
+    "http://localhost:8080/*",
+    "https://localhost:8080/*"
+  ]
+}

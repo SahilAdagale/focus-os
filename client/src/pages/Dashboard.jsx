@@ -3,6 +3,20 @@ import { getSessions, deleteSession } from '../services/sessionService'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
+function scoreColor(score) {
+    if (score === null || score === undefined) return '#888'
+    if (score >= 75) return '#1D9E75'
+    if (score >= 50) return '#D8A431'
+    return '#E24B4A'
+}
+
+function scoreBackground(score) {
+    if (score === null || score === undefined) return '#1a1a1a'
+    if (score >= 75) return '#0d2b1e'
+    if (score >= 50) return '#2b220d'
+    return '#2b1111'
+}
+
 function Dashboard() {
     const { settings } = useAuth()
     const DAILY_GOAL_MINUTES = settings.dailyGoal
@@ -37,51 +51,39 @@ function Dashboard() {
     }
 
     const completedSessions = sessions.filter(s => s.status === 'completed')
-
     const today = new Date()
     today.setHours(0, 0, 0, 0)
     const todaySessions = completedSessions.filter(s => new Date(s.startTime) >= today)
-    const todayMinutes = Math.floor(
-        todaySessions.reduce((sum, s) => sum + s.duration, 0) / 60
-    )
+    const todayMinutes = Math.floor(todaySessions.reduce((sum, s) => sum + s.duration, 0) / 60)
+    const totalMinutes = Math.floor(completedSessions.reduce((sum, s) => sum + s.duration, 0) / 60)
     const goalProgress = Math.min((todayMinutes / DAILY_GOAL_MINUTES) * 100, 100)
-
-    const totalMinutes = Math.floor(
-        completedSessions.reduce((sum, s) => sum + s.duration, 0) / 60
-    )
+    const scoredTodaySessions = todaySessions.filter(s => typeof s.focusScore === 'number')
+    const averageFocusScore = scoredTodaySessions.length > 0
+        ? Math.round(scoredTodaySessions.reduce((sum, s) => sum + s.focusScore, 0) / scoredTodaySessions.length)
+        : null
 
     if (loading) {
         return (
-            <div style={{ padding: '32px 24px', maxWidth: '800px', margin: '0 auto' }}>
+            <div style={{ padding: '32px 24px', maxWidth: '900px', margin: '0 auto' }}>
                 <p style={{ color: '#666', fontSize: '14px' }}>Loading sessions...</p>
             </div>
         )
     }
 
     return (
-        <div style={{ padding: '32px 24px', maxWidth: '800px', margin: '0 auto' }}>
+        <div style={{ padding: '32px 24px', maxWidth: '980px', margin: '0 auto' }}>
             <h1 style={{ fontSize: '22px', fontWeight: '500', marginBottom: '4px' }}>Dashboard</h1>
             <p style={{ fontSize: '14px', color: '#888', marginBottom: '28px' }}>
                 {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
             </p>
 
-            {/* Stat cards */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginBottom: '20px' }}>
-                <div style={{ background: '#111', border: '1px solid #1e1e1e', borderRadius: '10px', padding: '16px' }}>
-                    <p style={{ fontSize: '12px', color: '#666', marginBottom: '6px' }}>Sessions today</p>
-                    <p style={{ fontSize: '24px', fontWeight: '500' }}>{todaySessions.length}</p>
-                </div>
-                <div style={{ background: '#111', border: '1px solid #1e1e1e', borderRadius: '10px', padding: '16px' }}>
-                    <p style={{ fontSize: '12px', color: '#666', marginBottom: '6px' }}>Focus today</p>
-                    <p style={{ fontSize: '24px', fontWeight: '500' }}>{todayMinutes} <span style={{ fontSize: '14px', color: '#888', fontWeight: '400' }}>min</span></p>
-                </div>
-                <div style={{ background: '#111', border: '1px solid #1e1e1e', borderRadius: '10px', padding: '16px' }}>
-                    <p style={{ fontSize: '12px', color: '#666', marginBottom: '6px' }}>All time</p>
-                    <p style={{ fontSize: '24px', fontWeight: '500' }}>{totalMinutes} <span style={{ fontSize: '14px', color: '#888', fontWeight: '400' }}>min</span></p>
-                </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginBottom: '20px' }}>
+                <StatCard label="Sessions today" value={todaySessions.length} />
+                <StatCard label="Focus today" value={todayMinutes} unit="min" />
+                <StatCard label="All time" value={totalMinutes} unit="min" />
+                <StatCard label="Avg score" value={averageFocusScore ?? '--'} unit={averageFocusScore === null ? null : '/100'} accent={scoreColor(averageFocusScore)} />
             </div>
 
-            {/* Daily goal progress */}
             <div style={{
                 background: '#111',
                 border: '1px solid #1e1e1e',
@@ -92,7 +94,7 @@ function Dashboard() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
                     <p style={{ fontSize: '13px', color: '#888' }}>Daily goal</p>
                     <p style={{ fontSize: '12px', color: goalProgress >= 100 ? '#1D9E75' : '#555' }}>
-                        {goalProgress >= 100 ? '🎉 Goal reached!' : `${todayMinutes} / ${DAILY_GOAL_MINUTES} min`}
+                        {goalProgress >= 100 ? 'Goal reached' : `${todayMinutes} / ${DAILY_GOAL_MINUTES} min`}
                     </p>
                 </div>
                 <div style={{ height: '6px', background: '#1a1a1a', borderRadius: '3px', overflow: 'hidden' }}>
@@ -106,7 +108,6 @@ function Dashboard() {
                 </div>
             </div>
 
-            {/* Session history */}
             <h2 style={{ fontSize: '14px', fontWeight: '500', marginBottom: '12px' }}>Recent sessions</h2>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 {completedSessions.length === 0 ? (
@@ -127,68 +128,109 @@ function Dashboard() {
                             color: '#fff',
                             fontSize: '13px',
                             fontWeight: '500',
-                        }}>Start a session →</Link>
+                        }}>Start a session</Link>
                     </div>
                 ) : (
                     completedSessions.map(session => (
-                        <div key={session._id} style={{
-                            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                            padding: '12px 16px', background: '#111', border: '1px solid #1e1e1e', borderRadius: '10px',
-                            opacity: deletingId === session._id ? 0.4 : 1,
-                            transition: 'opacity 0.2s ease',
-                        }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#1D9E75', flexShrink: 0 }}></div>
-                                <span style={{ fontSize: '13px', color: '#888' }}>
-                                    {new Date(session.startTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} · {new Date(session.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                </span>
-                                <span style={{ fontSize: '13px' }}>{Math.floor(session.duration / 60)} min {Math.round(session.duration % 60)} sec</span>
-                                {session.plannedDuration > 0 && (
-                                    <span style={{ fontSize: '11px', color: '#555' }}>
-                                        / {Math.floor(session.plannedDuration / 60)} min goal
-                                    </span>
-                                )}
-                                {session.taskId && (
-                                    <span style={{
-                                        fontSize: '11px',
-                                        color: '#a9a3f5',
-                                        background: 'rgba(83, 74, 183, 0.15)',
-                                        padding: '2px 8px',
-                                        borderRadius: '12px',
-                                        fontWeight: '500',
-                                        border: '1px solid rgba(83, 74, 183, 0.3)',
-                                        marginLeft: '4px',
-                                    }}>
-                                        📌 {session.taskId.title}
-                                    </span>
-                                )}
-                            </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                <span style={{ fontSize: '11px', padding: '3px 8px', borderRadius: '20px', background: '#0d2b1e', color: '#1D9E75' }}>completed</span>
-                                <button
-                                    onClick={() => handleDelete(session._id)}
-                                    disabled={deletingId === session._id}
-                                    title="Delete session"
-                                    style={{
-                                        background: 'none',
-                                        border: '1px solid transparent',
-                                        color: '#555',
-                                        fontSize: '14px',
-                                        padding: '3px 6px',
-                                        borderRadius: '6px',
-                                        cursor: 'pointer',
-                                        lineHeight: 1,
-                                        transition: 'color 0.2s, border-color 0.2s',
-                                    }}
-                                    onMouseEnter={e => { e.currentTarget.style.color = '#E24B4A'; e.currentTarget.style.borderColor = '#3a1a1a' }}
-                                    onMouseLeave={e => { e.currentTarget.style.color = '#555'; e.currentTarget.style.borderColor = 'transparent' }}
-                                >
-                                    ✕
-                                </button>
-                            </div>
-                        </div>
+                        <SessionRow
+                            key={session._id}
+                            session={session}
+                            deleting={deletingId === session._id}
+                            onDelete={() => handleDelete(session._id)}
+                        />
                     ))
                 )}
+            </div>
+        </div>
+    )
+}
+
+function StatCard({ label, value, unit, accent }) {
+    return (
+        <div style={{ background: '#111', border: '1px solid #1e1e1e', borderRadius: '10px', padding: '16px' }}>
+            <p style={{ fontSize: '12px', color: '#666', marginBottom: '6px' }}>{label}</p>
+            <p style={{ fontSize: '24px', fontWeight: '500', color: accent || '#e8e8e8' }}>
+                {value}
+                {unit && <span style={{ fontSize: '14px', color: '#888', fontWeight: '400', marginLeft: '4px' }}>{unit}</span>}
+            </p>
+        </div>
+    )
+}
+
+function SessionRow({ session, deleting, onDelete }) {
+    const metrics = session.focusMetrics || {}
+    const hasScore = typeof session.focusScore === 'number'
+    const distractingMinutes = Math.round((metrics.distractingSeconds || 0) / 60)
+
+    return (
+        <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '16px',
+            padding: '12px 16px',
+            background: '#111',
+            border: '1px solid #1e1e1e',
+            borderRadius: '10px',
+            opacity: deleting ? 0.4 : 1,
+            transition: 'opacity 0.2s ease',
+        }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#1D9E75', flexShrink: 0 }}></div>
+                <span style={{ fontSize: '13px', color: '#888' }}>
+                    {new Date(session.startTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} at {new Date(session.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </span>
+                <span style={{ fontSize: '13px' }}>{Math.floor(session.duration / 60)} min {Math.round(session.duration % 60)} sec</span>
+                {session.plannedDuration > 0 && (
+                    <span style={{ fontSize: '11px', color: '#555' }}>/ {Math.floor(session.plannedDuration / 60)} min goal</span>
+                )}
+                {session.taskId && (
+                    <span style={{
+                        fontSize: '11px',
+                        color: '#a9a3f5',
+                        background: 'rgba(83, 74, 183, 0.15)',
+                        padding: '2px 8px',
+                        borderRadius: '12px',
+                        fontWeight: '500',
+                        border: '1px solid rgba(83, 74, 183, 0.3)',
+                    }}>{session.taskId.title}</span>
+                )}
+                <span style={{
+                    fontSize: '11px',
+                    color: scoreColor(session.focusScore),
+                    background: scoreBackground(session.focusScore),
+                    padding: '3px 8px',
+                    borderRadius: '12px',
+                    fontWeight: '500',
+                }}>
+                    {hasScore ? `score ${session.focusScore}/100` : 'score pending'}
+                </span>
+                <span style={{ fontSize: '11px', color: '#555' }}>{metrics.tabSwitches || 0} switches</span>
+                <span style={{ fontSize: '11px', color: distractingMinutes > 0 ? '#E24B4A' : '#555' }}>{distractingMinutes} distracting min</span>
+                <span style={{ fontSize: '11px', color: '#555' }}>{metrics.totalEvents || 0} events</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
+                <span style={{ fontSize: '11px', padding: '3px 8px', borderRadius: '20px', background: '#0d2b1e', color: '#1D9E75' }}>completed</span>
+                <button
+                    onClick={onDelete}
+                    disabled={deleting}
+                    title="Delete session"
+                    style={{
+                        background: 'none',
+                        border: '1px solid transparent',
+                        color: '#555',
+                        fontSize: '14px',
+                        padding: '3px 6px',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        lineHeight: 1,
+                        transition: 'color 0.2s, border-color 0.2s',
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.color = '#E24B4A'; e.currentTarget.style.borderColor = '#3a1a1a' }}
+                    onMouseLeave={e => { e.currentTarget.style.color = '#555'; e.currentTarget.style.borderColor = 'transparent' }}
+                >
+                    x
+                </button>
             </div>
         </div>
     )

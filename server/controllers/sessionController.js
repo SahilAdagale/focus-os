@@ -1,4 +1,10 @@
 const Session = require('../models/session')
+const mongoose = require('mongoose')
+const { scoreAndSaveSession } = require('../services/focusScoringService')
+
+function isValidObjectId(id) {
+    return mongoose.Types.ObjectId.isValid(id)
+}
 
 const startSession = async (req, res) => {
     try {
@@ -20,15 +26,41 @@ const startSession = async (req, res) => {
 
 const completeSession = async (req, res) => {
     try {
-        const session = await Session.findById(req.params.id)
+        if (!isValidObjectId(req.params.id)) {
+            return res.status(400).json({ message: "Invalid session id" })
+        }
+
+        const session = await Session.findOne({ _id: req.params.id, userId: req.user.id })
         if (!session) {
             return res.status(404).json({ message: "Session not found" })
         }
         session.endTime = new Date()
         session.status = "completed"
         session.duration = (session.endTime - session.startTime) / 1000
-        await session.save()
+        await scoreAndSaveSession(session)
         res.status(200).json({ message: "Session completed", session })
+    } catch (error) {
+        console.log(error)
+        res.status(500).json({ message: "Internal server error" })
+    }
+}
+
+const scoreSession = async (req, res) => {
+    try {
+        if (!isValidObjectId(req.params.id)) {
+            return res.status(400).json({ message: "Invalid session id" })
+        }
+
+        const session = await Session.findOne({ _id: req.params.id, userId: req.user.id })
+        if (!session) {
+            return res.status(404).json({ message: "Session not found" })
+        }
+        if (session.status !== "completed") {
+            return res.status(400).json({ message: "Only completed sessions can be scored" })
+        }
+
+        await scoreAndSaveSession(session)
+        res.status(200).json({ message: "Session scored", session })
     } catch (error) {
         console.log(error)
         res.status(500).json({ message: "Internal server error" })
@@ -47,6 +79,10 @@ const getSessions = async (req, res) => {
 
 const deleteSession = async (req, res) => {
     try {
+        if (!isValidObjectId(req.params.id)) {
+            return res.status(400).json({ message: "Invalid session id" })
+        }
+
         const session = await Session.findOne({ _id: req.params.id, userId: req.user.id })
         if (!session) {
             return res.status(404).json({ message: "Session not found" })
@@ -59,4 +95,4 @@ const deleteSession = async (req, res) => {
     }
 }
 
-module.exports = { startSession, completeSession, getSessions, deleteSession }
+module.exports = { startSession, completeSession, scoreSession, getSessions, deleteSession }

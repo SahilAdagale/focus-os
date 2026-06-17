@@ -32,6 +32,82 @@ const sessionSchema = new mongoose.Schema({
         type: Number,
         default: 0
     },
+    focusScore: {
+        type: Number,
+        min: 0,
+        max: 100,
+        default: null
+    },
+    focusBreakdown: {
+        sessionDepth: {
+            type: Number,
+            min: 0,
+            max: 100,
+            default: null
+        },
+        switchFrequency: {
+            type: Number,
+            min: 0,
+            max: 100,
+            default: null
+        },
+        distractionRatio: {
+            type: Number,
+            min: 0,
+            max: 100,
+            default: null
+        }
+    },
+    focusMetrics: {
+        totalEvents: {
+            type: Number,
+            default: 0
+        },
+        tabSwitches: {
+            type: Number,
+            default: 0
+        },
+        distractionVisits: {
+            type: Number,
+            default: 0
+        },
+        idleEvents: {
+            type: Number,
+            default: 0
+        },
+        trackedSeconds: {
+            type: Number,
+            default: 0
+        },
+        productiveSeconds: {
+            type: Number,
+            default: 0
+        },
+        neutralSeconds: {
+            type: Number,
+            default: 0
+        },
+        distractingSeconds: {
+            type: Number,
+            default: 0
+        },
+        idleSeconds: {
+            type: Number,
+            default: 0
+        },
+        switchesPerMinute: {
+            type: Number,
+            default: 0
+        },
+        distractionRatio: {
+            type: Number,
+            default: 0
+        }
+    },
+    scoredAt: {
+        type: Date,
+        default: null
+    },
     verified: {
         type: Boolean,
         default: false
