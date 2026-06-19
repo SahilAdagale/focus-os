@@ -67,11 +67,15 @@ function playChime(settings, notes) {
 }
 
 function postExtensionMessage(type, payload = {}) {
+    const requestId = `${Date.now()}-${Math.random().toString(36).slice(2)}`
     window.postMessage({
         source: 'focus-os-web',
+        requestId,
         type,
         payload
     }, window.location.origin)
+
+    return requestId
 }
 
 function Timer() {
@@ -90,6 +94,14 @@ function Timer() {
     const [sessionId, setSessionId] = useState(savedTimer?.sessionId || null)
     const [hasStarted, setHasStarted] = useState(savedTimer?.hasStarted || false)
     const [deadlineAt, setDeadlineAt] = useState(savedTimer?.deadlineAt || null)
+    const [extensionStatus, setExtensionStatus] = useState({
+        connected: false,
+        authenticated: false,
+        trackingEnabled: false,
+        sessionLinked: false,
+        queuedEvents: 0,
+        activeDomain: null,
+    })
     const completionHandledRef = useRef(false)
 
     const totalSeconds = mode === 'focus' ? duration * 60 : (pomodoroCount > 0 && pomodoroCount % 4 === 0 ? 15 : 5) * 60
@@ -142,9 +154,38 @@ function Timer() {
         postExtensionMessage('FOCUS_OS_SET_CONTEXT', {
             token,
             apiBase: API_BASE,
-            sessionId: sessionId || null
+            sessionId: sessionId || null,
+            deadlineAt: deadlineAt || null
         })
-    }, [token, sessionId])
+    }, [token, sessionId, deadlineAt])
+
+    useEffect(() => {
+        const handleExtensionResponse = (event) => {
+            if (event.source !== window) return
+            if (event.data?.source !== 'focus-os-extension') return
+            if (event.data?.type !== 'FOCUS_OS_STATUS_RESULT') return
+
+            const response = event.data.response || {}
+            setExtensionStatus({
+                connected: Boolean(response.ok),
+                authenticated: Boolean(response.authenticated),
+                trackingEnabled: Boolean(response.trackingEnabled),
+                sessionLinked: Boolean(response.sessionId),
+                queuedEvents: response.queuedEvents || 0,
+                activeDomain: response.activeDomain || null,
+            })
+        }
+
+        window.addEventListener('message', handleExtensionResponse)
+        return () => window.removeEventListener('message', handleExtensionResponse)
+    }, [])
+
+    useEffect(() => {
+        const refreshStatus = () => postExtensionMessage('FOCUS_OS_STATUS')
+        refreshStatus()
+        const interval = setInterval(refreshStatus, 3000)
+        return () => clearInterval(interval)
+    }, [sessionId, isRunning])
 
     const switchToBreak = useCallback((shouldStart = false) => {
         const breakMinutes = (pomodoroCount + 1) % 4 === 0 ? 15 : 5
@@ -226,11 +267,14 @@ function Timer() {
         if (mode === 'focus' && !hasStarted) {
             try {
                 const data = await startSession(duration * 60, selectedTaskId)
+                const nextDeadlineAt = Date.now() + seconds * 1000
                 setSessionId(data.session._id)
+                setDeadlineAt(nextDeadlineAt)
                 postExtensionMessage('FOCUS_OS_SET_CONTEXT', {
                     token,
                     apiBase: API_BASE,
-                    sessionId: data.session._id
+                    sessionId: data.session._id,
+                    deadlineAt: nextDeadlineAt
                 })
             } catch {
                 setToast({ message: 'Failed to start session', type: 'error' })
@@ -240,7 +284,7 @@ function Timer() {
 
         completionHandledRef.current = false
         setHasStarted(true)
-        setDeadlineAt(Date.now() + seconds * 1000)
+        setDeadlineAt(prev => prev || Date.now() + seconds * 1000)
         setIsRunning(true)
     }
 
@@ -276,7 +320,28 @@ function Timer() {
             {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
             <h1 style={{ fontSize: '22px', fontWeight: '500', marginBottom: '4px' }}>Focus Timer</h1>
-            <p style={{ fontSize: '14px', color: '#888', marginBottom: '32px' }}>Stay focused, track your sessions</p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '32px', flexWrap: 'wrap' }}>
+                <p style={{ fontSize: '14px', color: '#888' }}>Stay focused, track your sessions</p>
+                <span style={{
+                    fontSize: '11px',
+                    color: extensionStatus.connected && extensionStatus.authenticated ? '#1D9E75' : '#D8A431',
+                    background: extensionStatus.connected && extensionStatus.authenticated ? '#0d2b1e' : '#2b220d',
+                    padding: '3px 8px',
+                    borderRadius: '999px',
+                    border: '1px solid #262626',
+                }}>
+                    {extensionStatus.connected
+                        ? extensionStatus.sessionLinked
+                            ? `extension linked${extensionStatus.activeDomain ? ` - ${extensionStatus.activeDomain}` : ''}`
+                            : extensionStatus.authenticated
+                                ? 'extension connected'
+                                : 'extension needs login'
+                        : 'extension not detected'}
+                </span>
+                {extensionStatus.queuedEvents > 0 && (
+                    <span style={{ fontSize: '11px', color: '#888' }}>{extensionStatus.queuedEvents} queued</span>
+                )}
+            </div>
 
             <div style={{ display: 'flex', gap: '24px', alignItems: 'flex-start' }}>
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '8px 0' }}>

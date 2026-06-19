@@ -28,12 +28,16 @@ export function AuthProvider({ children }) {
     // Fetch user profile + settings whenever we have a token
     const fetchUser = useCallback(async () => {
         if (!token) {
+            setUser(null)
+            setSettings(DEFAULT_SETTINGS)
             setLoading(false)
             return
         }
+        setLoading(true)
         try {
             const data = await getMe()
-            const { password, ...safeUser } = data.user
+            const safeUser = { ...data.user }
+            delete safeUser.password
             setUser(safeUser)
             setSettings({
                 defaultDuration: data.user.defaultDuration ?? DEFAULT_SETTINGS.defaultDuration,
@@ -54,7 +58,8 @@ export function AuthProvider({ children }) {
         fetchUser()
     }, [fetchUser])
 
-    const loginAuth = (newToken, userData) => {
+    const loginAuth = (newToken) => {
+        setLoading(true)
         setToken(newToken)
         // User profile + settings will be loaded by the fetchUser effect
     }
@@ -67,7 +72,8 @@ export function AuthProvider({ children }) {
 
     // Called from Settings page after a successful update
     const applySettings = (updatedUser) => {
-        const { password, ...safeUser } = updatedUser
+        const safeUser = { ...updatedUser }
+        delete safeUser.password
         setUser(safeUser)
         setSettings({
             defaultDuration: updatedUser.defaultDuration ?? DEFAULT_SETTINGS.defaultDuration,
@@ -81,7 +87,7 @@ export function AuthProvider({ children }) {
         user,
         settings,
         loading,
-        isAuthenticated: !!token,
+        isAuthenticated: Boolean(token && user),
         loginAuth,
         logout,
         applySettings,

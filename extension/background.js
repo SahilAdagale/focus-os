@@ -3,6 +3,7 @@ const STORAGE_KEYS = {
     token: 'focusOsToken',
     apiBase: 'focusOsApiBase',
     sessionId: 'focusOsSessionId',
+    sessionDeadlineAt: 'focusOsSessionDeadlineAt',
     trackingEnabled: 'focusOsTrackingEnabled',
     queue: 'focusOsEventQueue'
 }
@@ -111,6 +112,9 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
     if (alarm.name === 'flush-attention-events') {
         await flushActiveInterval('tab_update')
         await flushQueuedEvents()
+    }
+    if (alarm.name === 'complete-focus-session') {
+        await completeSessionFromExtension()
     }
 })
 
@@ -248,14 +252,41 @@ async function setFocusContext(payload = {}) {
     if (payload.token) updates[STORAGE_KEYS.token] = payload.token
     if (payload.apiBase) updates[STORAGE_KEYS.apiBase] = payload.apiBase
     if (payload.sessionId !== undefined) updates[STORAGE_KEYS.sessionId] = payload.sessionId || null
+    if (payload.deadlineAt !== undefined) updates[STORAGE_KEYS.sessionDeadlineAt] = payload.deadlineAt || null
 
     await chrome.storage.local.set(updates)
+
+    if (payload.sessionId && payload.deadlineAt) {
+        await chrome.alarms.create('complete-focus-session', { when: payload.deadlineAt })
+    }
 }
 
 async function clearFocusSession() {
     await flushActiveInterval('tab_update')
-    await chrome.storage.local.remove(STORAGE_KEYS.sessionId)
+    await chrome.storage.local.remove([STORAGE_KEYS.sessionId, STORAGE_KEYS.sessionDeadlineAt])
+    await chrome.alarms.clear('complete-focus-session')
     await flushQueuedEvents()
+}
+
+async function completeSessionFromExtension() {
+    const settings = await getSettings()
+    if (!settings.token || !settings.sessionId) return
+
+    await flushActiveInterval('tab_update')
+    await flushQueuedEvents()
+
+    try {
+        await fetch(`${settings.apiBase}/session/${settings.sessionId}/complete`, {
+            method: 'PUT',
+            headers: {
+                Authorization: `Bearer ${settings.token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({})
+        })
+    } finally {
+        await chrome.storage.local.remove([STORAGE_KEYS.sessionId, STORAGE_KEYS.sessionDeadlineAt])
+    }
 }
 
 async function getSettings() {
@@ -263,6 +294,7 @@ async function getSettings() {
         STORAGE_KEYS.token,
         STORAGE_KEYS.apiBase,
         STORAGE_KEYS.sessionId,
+        STORAGE_KEYS.sessionDeadlineAt,
         STORAGE_KEYS.trackingEnabled
     ])
 
@@ -270,6 +302,7 @@ async function getSettings() {
         token: stored[STORAGE_KEYS.token],
         apiBase: stored[STORAGE_KEYS.apiBase] || DEFAULT_API_BASE,
         sessionId: stored[STORAGE_KEYS.sessionId],
+        sessionDeadlineAt: stored[STORAGE_KEYS.sessionDeadlineAt],
         trackingEnabled: stored[STORAGE_KEYS.trackingEnabled] !== false
     }
 }
@@ -283,6 +316,7 @@ async function getStatus() {
         authenticated: Boolean(settings.token),
         apiBase: settings.apiBase,
         sessionId: settings.sessionId || null,
+        sessionDeadlineAt: settings.sessionDeadlineAt || null,
         queuedEvents: (stored[STORAGE_KEYS.queue] || []).length,
         activeDomain: activeTab?.domain || null
     }

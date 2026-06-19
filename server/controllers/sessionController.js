@@ -34,6 +34,9 @@ const completeSession = async (req, res) => {
         if (!session) {
             return res.status(404).json({ message: "Session not found" })
         }
+        if (session.status === "completed") {
+            return res.status(200).json({ message: "Session already completed", session })
+        }
         session.endTime = new Date()
         session.status = "completed"
         session.duration = (session.endTime - session.startTime) / 1000
