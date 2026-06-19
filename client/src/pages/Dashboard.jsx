@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { getSessions, deleteSession } from '../services/sessionService'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { connectRealtime, disconnectRealtime } from '../services/socketService'
+import { getAttentionEvents } from '../services/attentionEventService'
 
 function scoreColor(score) {
     if (score === null || score === undefined) return '#888'
@@ -18,17 +20,23 @@ function scoreBackground(score) {
 }
 
 function Dashboard() {
-    const { settings } = useAuth()
+    const { settings, token } = useAuth()
     const DAILY_GOAL_MINUTES = settings.dailyGoal
     const [sessions, setSessions] = useState([])
+    const [liveEvents, setLiveEvents] = useState([])
+    const [realtimeStatus, setRealtimeStatus] = useState('connecting')
     const [loading, setLoading] = useState(true)
     const [deletingId, setDeletingId] = useState(null)
 
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const sessionData = await getSessions()
+                const [sessionData, eventData] = await Promise.all([
+                    getSessions(),
+                    getAttentionEvents({ limit: 20 })
+                ])
                 setSessions(sessionData.sessions)
+                setLiveEvents(eventData.events || [])
             } catch (err) {
                 console.error('Failed to fetch data:', err)
             } finally {
@@ -37,6 +45,60 @@ function Dashboard() {
         }
         fetchData()
     }, [])
+
+    useEffect(() => {
+        if (!token) return undefined
+
+        const socket = connectRealtime(token)
+        if (!socket) return undefined
+
+        const upsertSession = ({ session }) => {
+            setSessions(prev => {
+                const exists = prev.some(item => item._id === session._id)
+                if (exists) {
+                    return prev.map(item => item._id === session._id ? session : item)
+                }
+                return [session, ...prev]
+            })
+        }
+
+        const removeSession = ({ sessionId }) => {
+            setSessions(prev => prev.filter(session => session._id !== sessionId))
+        }
+
+        const pushEvent = ({ event }) => {
+            setLiveEvents(prev => [event, ...prev].slice(0, 20))
+        }
+
+        const pushEvents = ({ events }) => {
+            setLiveEvents(prev => [...events.reverse(), ...prev].slice(0, 20))
+        }
+
+        socket.on('connect', () => setRealtimeStatus('connected'))
+        socket.on('connect_error', () => setRealtimeStatus('disconnected'))
+        socket.on('disconnect', () => setRealtimeStatus('disconnected'))
+        socket.on('realtime:connected', () => setRealtimeStatus('connected'))
+        socket.on('session:started', upsertSession)
+        socket.on('session:completed', upsertSession)
+        socket.on('session:scored', upsertSession)
+        socket.on('session:deleted', removeSession)
+        socket.on('attention:event', pushEvent)
+        socket.on('attention:events', pushEvents)
+
+        return () => {
+            socket.off('connect')
+            socket.off('connect_error')
+            socket.off('disconnect')
+            socket.off('realtime:connected')
+            socket.off('session:started', upsertSession)
+            socket.off('session:completed', upsertSession)
+            socket.off('session:scored', upsertSession)
+            socket.off('session:deleted', removeSession)
+            socket.off('attention:event', pushEvent)
+            socket.off('attention:events', pushEvents)
+            disconnectRealtime()
+        }
+    }, [token])
 
     const handleDelete = async (sessionId) => {
         setDeletingId(sessionId)
@@ -61,6 +123,13 @@ function Dashboard() {
     const averageFocusScore = scoredTodaySessions.length > 0
         ? Math.round(scoredTodaySessions.reduce((sum, s) => sum + s.focusScore, 0) / scoredTodaySessions.length)
         : null
+    const liveSummary = liveEvents.reduce((summary, event) => {
+        summary.totalEvents += 1
+        if (event.type === 'tab_switch') summary.tabSwitches += 1
+        if (event.category === 'distracting') summary.distractingSeconds += event.durationSeconds || 0
+        if (event.type === 'idle_start' || event.type === 'idle_end') summary.idleEvents += 1
+        return summary
+    }, { totalEvents: 0, tabSwitches: 0, distractingSeconds: 0, idleEvents: 0 })
 
     if (loading) {
         return (
@@ -76,12 +145,47 @@ function Dashboard() {
             <p style={{ fontSize: '14px', color: '#888', marginBottom: '28px' }}>
                 {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
             </p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '20px' }}>
+                <span style={{
+                    width: '7px',
+                    height: '7px',
+                    borderRadius: '50%',
+                    background: realtimeStatus === 'connected' ? '#1D9E75' : '#D8A431'
+                }} />
+                <span style={{ fontSize: '12px', color: '#888' }}>
+                    Realtime {realtimeStatus === 'connected' ? 'connected' : 'waiting for events'}
+                </span>
+            </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginBottom: '20px' }}>
                 <StatCard label="Sessions today" value={todaySessions.length} />
                 <StatCard label="Focus today" value={todayMinutes} unit="min" />
                 <StatCard label="All time" value={totalMinutes} unit="min" />
                 <StatCard label="Avg score" value={averageFocusScore ?? '--'} unit={averageFocusScore === null ? null : '/100'} accent={scoreColor(averageFocusScore)} />
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '32px' }}>
+                <div style={{ background: '#111', border: '1px solid #1e1e1e', borderRadius: '10px', padding: '16px' }}>
+                    <h2 style={{ fontSize: '14px', fontWeight: '500', marginBottom: '12px' }}>Live attention</h2>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
+                        <MiniMetric label="Events" value={liveSummary.totalEvents} />
+                        <MiniMetric label="Switches" value={liveSummary.tabSwitches} />
+                        <MiniMetric label="Distracting" value={`${Math.round(liveSummary.distractingSeconds / 60)}m`} accent={liveSummary.distractingSeconds > 0 ? '#E24B4A' : undefined} />
+                        <MiniMetric label="Idle" value={liveSummary.idleEvents} />
+                    </div>
+                </div>
+                <div style={{ background: '#111', border: '1px solid #1e1e1e', borderRadius: '10px', padding: '16px' }}>
+                    <h2 style={{ fontSize: '14px', fontWeight: '500', marginBottom: '12px' }}>Event stream</h2>
+                    {liveEvents.length === 0 ? (
+                        <p style={{ fontSize: '12px', color: '#555' }}>Waiting for extension activity...</p>
+                    ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '150px', overflow: 'auto' }}>
+                            {liveEvents.map(event => (
+                                <EventRow key={event._id || `${event.type}-${event.occurredAt}`} event={event} />
+                            ))}
+                        </div>
+                    )}
+                </div>
             </div>
 
             <div style={{
@@ -153,6 +257,46 @@ function StatCard({ label, value, unit, accent }) {
                 {value}
                 {unit && <span style={{ fontSize: '14px', color: '#888', fontWeight: '400', marginLeft: '4px' }}>{unit}</span>}
             </p>
+        </div>
+    )
+}
+
+function MiniMetric({ label, value, accent }) {
+    return (
+        <div style={{ background: '#181818', borderRadius: '8px', padding: '10px' }}>
+            <p style={{ fontSize: '10px', color: '#666', marginBottom: '5px' }}>{label}</p>
+            <p style={{ fontSize: '18px', fontWeight: '500', color: accent || '#e8e8e8' }}>{value}</p>
+        </div>
+    )
+}
+
+function EventRow({ event }) {
+    const title = event.title || event.domain || 'Unknown tab'
+    const eventLabel = event.type.replaceAll('_', ' ')
+
+    return (
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: '10px', alignItems: 'flex-start' }}>
+            <div style={{ minWidth: 0 }}>
+                <p
+                    title={title}
+                    style={{
+                        fontSize: '12px',
+                        color: event.category === 'distracting' ? '#E24B4A' : '#d7d7d7',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        maxWidth: '340px',
+                    }}
+                >
+                    {title}
+                </p>
+                <p style={{ fontSize: '10px', color: '#666', marginTop: '2px' }}>
+                    {eventLabel}{event.domain ? ` - ${event.domain}` : ''}
+                </p>
+            </div>
+            <span style={{ fontSize: '11px', color: '#555', flexShrink: 0 }}>
+                {event.durationSeconds || 0}s
+            </span>
         </div>
     )
 }

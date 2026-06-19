@@ -1,6 +1,7 @@
 const Session = require('../models/session')
 const mongoose = require('mongoose')
 const { scoreAndSaveSession } = require('../services/focusScoringService')
+const { emitToUser } = require('../config/socket')
 
 function isValidObjectId(id) {
     return mongoose.Types.ObjectId.isValid(id)
@@ -17,6 +18,7 @@ const startSession = async (req, res) => {
         })
 
         await session.save()
+        emitToUser(req.user.id, 'session:started', { session })
         res.status(201).json({ message: "Session started", session })
     } catch (error) {
         console.log(error)
@@ -41,6 +43,7 @@ const completeSession = async (req, res) => {
         session.status = "completed"
         session.duration = (session.endTime - session.startTime) / 1000
         await scoreAndSaveSession(session)
+        emitToUser(req.user.id, 'session:completed', { session })
         res.status(200).json({ message: "Session completed", session })
     } catch (error) {
         console.log(error)
@@ -63,6 +66,7 @@ const scoreSession = async (req, res) => {
         }
 
         await scoreAndSaveSession(session)
+        emitToUser(req.user.id, 'session:scored', { session })
         res.status(200).json({ message: "Session scored", session })
     } catch (error) {
         console.log(error)
@@ -91,6 +95,7 @@ const deleteSession = async (req, res) => {
             return res.status(404).json({ message: "Session not found" })
         }
         await session.deleteOne()
+        emitToUser(req.user.id, 'session:deleted', { sessionId: req.params.id })
         res.status(200).json({ message: "Session deleted" })
     } catch (error) {
         console.log(error)

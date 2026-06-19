@@ -95,12 +95,14 @@ function Timer() {
     const [hasStarted, setHasStarted] = useState(savedTimer?.hasStarted || false)
     const [deadlineAt, setDeadlineAt] = useState(savedTimer?.deadlineAt || null)
     const [extensionStatus, setExtensionStatus] = useState({
+        contentScriptDetected: false,
         connected: false,
         authenticated: false,
         trackingEnabled: false,
         sessionLinked: false,
         queuedEvents: 0,
         activeDomain: null,
+        error: null,
     })
     const completionHandledRef = useRef(false)
 
@@ -163,16 +165,28 @@ function Timer() {
         const handleExtensionResponse = (event) => {
             if (event.source !== window) return
             if (event.data?.source !== 'focus-os-extension') return
+
+            if (event.data?.type === 'FOCUS_OS_CONTENT_READY') {
+                setExtensionStatus(prev => ({
+                    ...prev,
+                    contentScriptDetected: true,
+                    error: null,
+                }))
+                return
+            }
+
             if (event.data?.type !== 'FOCUS_OS_STATUS_RESULT') return
 
             const response = event.data.response || {}
             setExtensionStatus({
+                contentScriptDetected: true,
                 connected: Boolean(response.ok),
                 authenticated: Boolean(response.authenticated),
                 trackingEnabled: Boolean(response.trackingEnabled),
                 sessionLinked: Boolean(response.sessionId),
                 queuedEvents: response.queuedEvents || 0,
                 activeDomain: response.activeDomain || null,
+                error: response.error || null,
             })
         }
 
@@ -336,10 +350,15 @@ function Timer() {
                             : extensionStatus.authenticated
                                 ? 'extension connected'
                                 : 'extension needs login'
-                        : 'extension not detected'}
+                        : extensionStatus.contentScriptDetected
+                            ? 'extension background not responding'
+                            : 'extension not detected'}
                 </span>
                 {extensionStatus.queuedEvents > 0 && (
                     <span style={{ fontSize: '11px', color: '#888' }}>{extensionStatus.queuedEvents} queued</span>
+                )}
+                {extensionStatus.error && (
+                    <span style={{ fontSize: '11px', color: '#E24B4A' }}>{extensionStatus.error}</span>
                 )}
             </div>
 

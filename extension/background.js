@@ -5,7 +5,9 @@ const STORAGE_KEYS = {
     sessionId: 'focusOsSessionId',
     sessionDeadlineAt: 'focusOsSessionDeadlineAt',
     trackingEnabled: 'focusOsTrackingEnabled',
-    queue: 'focusOsEventQueue'
+    queue: 'focusOsEventQueue',
+    activeTabState: 'focusOsActiveTabState',
+    idleStartedAt: 'focusOsIdleStartedAt'
 }
 
 const DISTRACTING_DOMAINS = new Set([
@@ -37,6 +39,8 @@ let activeTab = null
 let activeStartedAt = Date.now()
 let idleStartedAt = null
 
+restoreRuntimeState()
+
 chrome.runtime.onInstalled.addListener(async () => {
     await chrome.idle.setDetectionInterval(60)
     await ensureFlushAlarm()
@@ -54,27 +58,33 @@ chrome.runtime.onStartup.addListener(async () => {
 })
 
 chrome.tabs.onActivated.addListener(async ({ tabId, windowId }) => {
+    await restoreRuntimeState()
     await flushActiveInterval('tab_update')
     const tab = await safeGetTab(tabId)
     activeTab = normalizeTab(tab, windowId)
     activeStartedAt = Date.now()
+    await persistActiveTab()
     await trackEvent('tab_switch', activeTab)
 })
 
 chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
     if (!tab.active || !changeInfo.url) return
+    await restoreRuntimeState()
     await flushActiveInterval('tab_update')
     activeTab = normalizeTab(tab)
     activeStartedAt = Date.now()
+    await persistActiveTab()
     await trackEvent('tab_update', activeTab)
 })
 
 chrome.windows.onFocusChanged.addListener(async (windowId) => {
+    await restoreRuntimeState()
     await flushActiveInterval('active_window_change')
 
     if (windowId === chrome.windows.WINDOW_ID_NONE) {
         activeTab = null
         activeStartedAt = Date.now()
+        await persistActiveTab()
         await trackEvent('active_window_change', { windowId, category: 'unknown' })
         return
     }
@@ -82,13 +92,16 @@ chrome.windows.onFocusChanged.addListener(async (windowId) => {
     const [tab] = await chrome.tabs.query({ active: true, windowId })
     activeTab = normalizeTab(tab, windowId)
     activeStartedAt = Date.now()
+    await persistActiveTab()
     await trackEvent('active_window_change', activeTab)
 })
 
 chrome.idle.onStateChanged.addListener(async (state) => {
+    await restoreRuntimeState()
     if (state === 'idle' || state === 'locked') {
         await flushActiveInterval('tab_update')
         idleStartedAt = Date.now()
+        await chrome.storage.local.set({ [STORAGE_KEYS.idleStartedAt]: idleStartedAt })
         await trackEvent('idle_start', {
             category: 'unknown',
             metadata: { state }
@@ -99,6 +112,7 @@ chrome.idle.onStateChanged.addListener(async (state) => {
     if (state === 'active' && idleStartedAt) {
         const durationSeconds = secondsSince(idleStartedAt)
         idleStartedAt = null
+        await chrome.storage.local.remove(STORAGE_KEYS.idleStartedAt)
         await initializeActiveTab()
         await trackEvent('idle_end', {
             ...activeTab,
@@ -109,6 +123,7 @@ chrome.idle.onStateChanged.addListener(async (state) => {
 })
 
 chrome.alarms.onAlarm.addListener(async (alarm) => {
+    await restoreRuntimeState()
     if (alarm.name === 'flush-attention-events') {
         await flushActiveInterval('tab_update')
         await flushQueuedEvents()
@@ -120,7 +135,8 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message?.type === 'FOCUS_OS_FLUSH') {
-        flushActiveInterval('tab_update')
+        restoreRuntimeState()
+            .then(() => flushActiveInterval('tab_update'))
             .then(flushQueuedEvents)
             .then(() => sendResponse({ ok: true }))
             .catch((error) => sendResponse({ ok: false, error: error.message }))
@@ -151,9 +167,11 @@ async function initializeActiveTab() {
     const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true })
     activeTab = normalizeTab(tab)
     activeStartedAt = Date.now()
+    await persistActiveTab()
 }
 
 async function flushActiveInterval(type) {
+    await restoreRuntimeState()
     if (!activeTab) return
     const durationSeconds = secondsSince(activeStartedAt)
     if (durationSeconds <= 0) return
@@ -163,6 +181,27 @@ async function flushActiveInterval(type) {
         durationSeconds
     })
     activeStartedAt = Date.now()
+    await persistActiveTab()
+}
+
+async function restoreRuntimeState() {
+    const stored = await chrome.storage.local.get([STORAGE_KEYS.activeTabState, STORAGE_KEYS.idleStartedAt])
+    if (!activeTab && stored[STORAGE_KEYS.activeTabState]) {
+        activeTab = stored[STORAGE_KEYS.activeTabState].activeTab || null
+        activeStartedAt = stored[STORAGE_KEYS.activeTabState].activeStartedAt || Date.now()
+    }
+    if (!idleStartedAt && stored[STORAGE_KEYS.idleStartedAt]) {
+        idleStartedAt = stored[STORAGE_KEYS.idleStartedAt]
+    }
+}
+
+async function persistActiveTab() {
+    await chrome.storage.local.set({
+        [STORAGE_KEYS.activeTabState]: {
+            activeTab,
+            activeStartedAt
+        }
+    })
 }
 
 async function ensureFlushAlarm() {
@@ -272,6 +311,7 @@ async function completeSessionFromExtension() {
     const settings = await getSettings()
     if (!settings.token || !settings.sessionId) return
 
+    await restoreRuntimeState()
     await flushActiveInterval('tab_update')
     await flushQueuedEvents()
 

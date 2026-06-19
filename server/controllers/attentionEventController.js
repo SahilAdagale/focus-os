@@ -2,6 +2,7 @@ const mongoose = require('mongoose')
 const AttentionEvent = require('../models/attentionEvent')
 const Session = require('../models/session')
 const { scoreAndSaveSession } = require('../services/focusScoringService')
+const { emitToUser } = require('../config/socket')
 
 const VALID_TYPES = new Set([
     'tab_switch',
@@ -83,6 +84,7 @@ async function rescoreCompletedSession(sessionId, userId) {
     const session = await Session.findOne({ _id: sessionId, userId })
     if (session?.status === 'completed') {
         await scoreAndSaveSession(session)
+        emitToUser(userId, 'session:scored', { session })
     }
 }
 
@@ -104,6 +106,7 @@ const createAttentionEvent = async (req, res) => {
         })
 
         await event.save()
+        emitToUser(req.user.id, 'attention:event', { event })
         await rescoreCompletedSession(event.sessionId, req.user.id)
         res.status(201).json({ event })
     } catch (error) {
@@ -153,6 +156,11 @@ const createAttentionEventsBulk = async (req, res) => {
         const events = await AttentionEvent.insertMany(
             normalizedEvents.map(event => ({ ...event, userId: req.user.id }))
         )
+
+        emitToUser(req.user.id, 'attention:events', {
+            insertedCount: events.length,
+            events
+        })
 
         await Promise.all(
             Array.from(sessionIds).map(sessionId => rescoreCompletedSession(sessionId, req.user.id))
