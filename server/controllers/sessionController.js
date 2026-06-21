@@ -2,6 +2,7 @@ const Session = require('../models/session')
 const mongoose = require('mongoose')
 const { scoreAndSaveSession } = require('../services/focusScoringService')
 const { emitToUser } = require('../config/socket')
+const { cacheGet, cacheSet, cacheInvalidate, sessionsCacheKey } = require('../services/cacheService')
 
 function isValidObjectId(id) {
     return mongoose.Types.ObjectId.isValid(id)
@@ -18,6 +19,7 @@ const startSession = async (req, res) => {
         })
 
         await session.save()
+        await cacheInvalidate(sessionsCacheKey(req.user.id))
         emitToUser(req.user.id, 'session:started', { session })
         res.status(201).json({ message: "Session started", session })
     } catch (error) {
@@ -43,6 +45,7 @@ const completeSession = async (req, res) => {
         session.status = "completed"
         session.duration = (session.endTime - session.startTime) / 1000
         await scoreAndSaveSession(session)
+        await cacheInvalidate(sessionsCacheKey(req.user.id))
         emitToUser(req.user.id, 'session:completed', { session })
         res.status(200).json({ message: "Session completed", session })
     } catch (error) {
@@ -76,8 +79,16 @@ const scoreSession = async (req, res) => {
 
 const getSessions = async (req, res) => {
     try {
+        const cacheKey = sessionsCacheKey(req.user.id)
+        const cached = await cacheGet(cacheKey)
+        if (cached) {
+            return res.status(200).json(cached)
+        }
+
         const sessions = await Session.find({ userId: req.user.id }).populate('taskId').sort({ startTime: -1 })
-        res.status(200).json({ sessions })
+        const payload = { sessions }
+        await cacheSet(cacheKey, payload, 300)
+        res.status(200).json(payload)
     } catch (error) {
         console.log(error)
         res.status(500).json({ message: 'Internal server error' })
@@ -95,6 +106,7 @@ const deleteSession = async (req, res) => {
             return res.status(404).json({ message: "Session not found" })
         }
         await session.deleteOne()
+        await cacheInvalidate(sessionsCacheKey(req.user.id))
         emitToUser(req.user.id, 'session:deleted', { sessionId: req.params.id })
         res.status(200).json({ message: "Session deleted" })
     } catch (error) {

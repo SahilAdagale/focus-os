@@ -5,6 +5,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import ProtectedRoute, { PublicRoute } from './routes/ProtectedRoute'
 import Timer from './pages/timer'
 import Analytics from './pages/Analytics'
+import Reports from './pages/Reports'
 import Settings from './pages/Settings'
 import Navbar from './components/navbar'
 import { AuthProvider } from './context/AuthContext'
@@ -39,6 +40,11 @@ function App() {
           <Route path="/analytics" element={
             <ProtectedRoute>
               <Analytics />
+            </ProtectedRoute>
+          } />
+          <Route path="/reports" element={
+            <ProtectedRoute>
+              <Reports />
             </ProtectedRoute>
           } />
           <Route path="/settings" element={

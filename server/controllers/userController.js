@@ -1,14 +1,23 @@
 const bcrypt = require('bcrypt')
 const User = require('../models/user')
+const { cacheGet, cacheSet, cacheInvalidate, userCacheKey } = require('../services/cacheService')
 
 // GET /api/user/me — return current user profile + settings (no password)
 const getMe = async (req, res) => {
     try {
+        const cacheKey = userCacheKey(req.user.id)
+        const cached = await cacheGet(cacheKey)
+        if (cached) {
+            return res.status(200).json(cached)
+        }
+
         const user = await User.findById(req.user.id).select('-password')
         if (!user) {
             return res.status(404).json({ message: 'User not found' })
         }
-        res.status(200).json({ user })
+        const payload = { user }
+        await cacheSet(cacheKey, payload, 600)
+        res.status(200).json(payload)
     } catch (error) {
         console.error(error)
         res.status(500).json({ message: 'Internal server error' })
@@ -70,6 +79,7 @@ const updateSettings = async (req, res) => {
         }
 
         await user.save()
+        await cacheInvalidate(userCacheKey(req.user.id))
 
         // Return updated user without password
         const updatedUser = user.toObject()

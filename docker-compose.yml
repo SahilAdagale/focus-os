@@ -1,0 +1,65 @@
+version: '3.8'
+
+services:
+  mongo:
+    image: mongo:7.0
+    container_name: focus-os-db
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: focus-os-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  server:
+    build: ./server
+    container_name: focus-os-server
+    ports:
+      - "8080:8080"
+    depends_on:
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      - MONGODB_URI=mongodb://mongo:27017/focus-os
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=${JWT_SECRET:-_Ua*!hy(WZ6kU0Bu46=2=-N6cqJBJ=)GLRpLKa822ZV}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_MODEL=${OPENAI_MODEL:-gpt-4o-mini}
+      - PORT=8080
+    restart: unless-stopped
+
+  client:
+    build:
+      context: ./client
+      args:
+        - VITE_API_URL=${VITE_API_URL:-http://localhost}
+    container_name: focus-os-client
+    ports:
+      - "80:80"
+    depends_on:
+      - server
+    restart: unless-stopped
+
+volumes:
+  mongo-data:
+  redis-data:

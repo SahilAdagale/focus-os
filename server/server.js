@@ -3,11 +3,19 @@ const http = require('http');
 const app = require("./app");
 const connectDB = require('./config/db')
 const { initSocket } = require('./config/socket')
+const { startWorker } = require('./workers/worker')
+const { startScheduler } = require('./workers/scheduler')
 
 const port = 8080;
 const server = http.createServer(app);
 
-connectDB()
+connectDB().then(() => {
+    startWorker()
+    startScheduler()
+}).catch(err => {
+    console.error('Database connection failed:', err)
+})
+
 initSocket(server)
 
 server.listen(port, () => {

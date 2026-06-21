@@ -37,6 +37,7 @@ function Navbar() {
                         <NavLink to="/dashboard" style={navLinkStyle}>Dashboard</NavLink>
                         <NavLink to="/timer" style={navLinkStyle}>Timer</NavLink>
                         <NavLink to="/analytics" style={navLinkStyle}>Analytics</NavLink>
+                        <NavLink to="/reports" style={navLinkStyle}>Reports</NavLink>
                         <NavLink to="/settings" style={navLinkStyle}>Settings</NavLink>
                         {user?.name && (
                             <span style={{ fontSize: '13px', color: '#555', padding: '0 4px' }}>·</span>
